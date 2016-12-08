@@ -2,6 +2,7 @@
 <html ng-app="role">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="icon" href="../img/config.png">
     <!-- styles -->
     <link rel="stylesheet" type="text/css" href="../vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="../vendor/angular/angular-toastr-1.4.1.min.css">
@@ -43,9 +44,9 @@
                                 <button type="submit" class="btn btn-default" style="margin-left: 20px;" ng-disabled="submitBtnDisabled">添加</button>
                             </form>
                             <!-- Split button -->
-                            <div class="user-container">
+                            <div class="item-container">
 
-                                <div class="btn-group user-info" ng-repeat="user in appRoleUsers.masterUsers">
+                                <div class="btn-group item-info" ng-repeat="user in appRoleUsers.masterUsers">
                                     <button type="button" class="btn btn-default" ng-bind="user.userId"></button>
                                     <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
                                             aria-haspopup="true" aria-expanded="false" ng-click="removeMasterRoleFromUser(user.userId)">

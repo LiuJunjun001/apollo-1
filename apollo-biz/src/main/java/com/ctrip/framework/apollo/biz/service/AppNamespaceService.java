@@ -8,10 +8,10 @@ import com.ctrip.framework.apollo.biz.entity.Cluster;
 import com.ctrip.framework.apollo.biz.entity.Namespace;
 import com.ctrip.framework.apollo.biz.repository.AppNamespaceRepository;
 import com.ctrip.framework.apollo.common.entity.AppNamespace;
+import com.ctrip.framework.apollo.common.exception.ServiceException;
 import com.ctrip.framework.apollo.common.utils.BeanUtils;
 import com.ctrip.framework.apollo.core.ConfigConsts;
 import com.ctrip.framework.apollo.core.enums.ConfigFileFormat;
-import com.ctrip.framework.apollo.common.exception.ServiceException;
 import com.ctrip.framework.apollo.core.utils.StringUtils;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +34,7 @@ public class AppNamespaceService {
   private ClusterService clusterService;
   @Autowired
   private AuditService auditService;
-  @Autowired
-  private ServerConfigService serverConfigService;
-  
+
   public boolean isAppNamespaceNameUnique(String appId, String namespaceName) {
     Objects.requireNonNull(appId, "AppId must not be null");
     Objects.requireNonNull(namespaceName, "Namespace must not be null");
@@ -122,7 +120,7 @@ public class AppNamespaceService {
   }
 
   private void linkPrivateAppNamespaceInAllCluster(String appId, String namespaceName, String createBy) {
-    List<Cluster> clusters = clusterService.findClusters(appId);
+    List<Cluster> clusters = clusterService.findParentClusters(appId);
     for (Cluster cluster : clusters) {
       Namespace namespace = new Namespace();
       namespace.setClusterName(cluster.getName());

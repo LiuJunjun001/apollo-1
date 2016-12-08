@@ -1,6 +1,8 @@
 package com.ctrip.framework.apollo.portal.controller;
 
 
+import com.google.common.collect.Sets;
+
 import com.ctrip.framework.apollo.common.entity.App;
 import com.ctrip.framework.apollo.common.exception.BadRequestException;
 import com.ctrip.framework.apollo.common.http.MultiResponseEntity;
@@ -8,21 +10,24 @@ import com.ctrip.framework.apollo.common.http.RichResponseEntity;
 import com.ctrip.framework.apollo.common.utils.InputValidator;
 import com.ctrip.framework.apollo.common.utils.RequestPrecondition;
 import com.ctrip.framework.apollo.core.enums.Env;
-import com.ctrip.framework.apollo.portal.PortalSettings;
-import com.ctrip.framework.apollo.portal.entity.po.UserInfo;
+import com.ctrip.framework.apollo.portal.components.PortalSettings;
+import com.ctrip.framework.apollo.portal.entity.bo.UserInfo;
 import com.ctrip.framework.apollo.portal.entity.vo.EnvClusterInfo;
 import com.ctrip.framework.apollo.portal.listener.AppCreationEvent;
 import com.ctrip.framework.apollo.portal.service.AppService;
-import com.ctrip.framework.apollo.portal.service.UserService;
+import com.ctrip.framework.apollo.portal.spi.UserService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 
@@ -46,8 +51,18 @@ public class AppController {
   private UserService userService;
 
   @RequestMapping("")
-  public List<App> findAllApp() {
-    return appService.findAll();
+  public List<App> findApps(@RequestParam(value = "appIds", required = false) String appIds) {
+    if (StringUtils.isEmpty(appIds)){
+      return appService.findAll();
+    }else {
+      return appService.findByAppIds(Sets.newHashSet(appIds.split(",")));
+    }
+
+  }
+
+  @RequestMapping("/by-owner")
+  public List<App> findAppsByOwner(@RequestParam("owner") String owner, Pageable page){
+    return appService.findByOwnerName(owner, page);
   }
 
   @RequestMapping("/{appId}/navtree")

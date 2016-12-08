@@ -4,11 +4,11 @@ import com.ctrip.framework.apollo.common.dto.ItemDTO;
 import com.ctrip.framework.apollo.common.exception.BadRequestException;
 import com.ctrip.framework.apollo.core.enums.Env;
 import com.ctrip.framework.apollo.core.utils.StringUtils;
-import com.ctrip.framework.apollo.portal.auth.UserInfoHolder;
-import com.ctrip.framework.apollo.portal.entity.form.NamespaceSyncModel;
-import com.ctrip.framework.apollo.portal.entity.form.NamespaceTextModel;
+import com.ctrip.framework.apollo.portal.entity.model.NamespaceSyncModel;
+import com.ctrip.framework.apollo.portal.entity.model.NamespaceTextModel;
 import com.ctrip.framework.apollo.portal.entity.vo.ItemDiffs;
 import com.ctrip.framework.apollo.portal.service.ItemService;
+import com.ctrip.framework.apollo.portal.spi.UserInfoHolder;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -58,6 +58,15 @@ public class ItemController {
                             @RequestBody ItemDTO item) {
     checkModel(isValidItem(item));
 
+    //protect
+    item.setLineNum(0);
+    item.setId(0);
+    String userId = userInfoHolder.getUser().getUserId();
+    item.setDataChangeCreatedBy(userId);
+    item.setDataChangeLastModifiedBy(userId);
+    item.setDataChangeCreatedTime(null);
+    item.setDataChangeLastModifiedTime(null);
+
     return configService.createItem(appId, Env.valueOf(env), clusterName, namespaceName, item);
   }
 
@@ -67,6 +76,9 @@ public class ItemController {
                          @PathVariable String clusterName, @PathVariable String namespaceName,
                          @RequestBody ItemDTO item) {
     checkModel(isValidItem(item));
+
+    String username = userInfoHolder.getUser().getUserId();
+    item.setDataChangeLastModifiedBy(username);
 
     configService.updateItem(appId, Env.valueOf(env), clusterName, namespaceName, item);
   }
@@ -102,6 +114,15 @@ public class ItemController {
       });
     }
     return items;
+  }
+
+  @RequestMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/branches/{branchName}/items")
+  public List<ItemDTO> findBranchItems(@PathVariable("appId") String appId, @PathVariable String env,
+                                       @PathVariable("clusterName") String clusterName,
+                                       @PathVariable("namespaceName") String namespaceName,
+                                       @PathVariable("branchName") String branchName) {
+
+    return findItems(appId, env, branchName, namespaceName, "lastModifiedTime");
   }
 
   @RequestMapping(value = "/namespaces/{namespaceName}/diff", method = RequestMethod.POST, consumes = {

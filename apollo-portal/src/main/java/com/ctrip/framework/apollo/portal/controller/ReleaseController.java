@@ -3,12 +3,14 @@ package com.ctrip.framework.apollo.portal.controller;
 import com.ctrip.framework.apollo.common.dto.ReleaseDTO;
 import com.ctrip.framework.apollo.common.utils.RequestPrecondition;
 import com.ctrip.framework.apollo.core.enums.Env;
-import com.ctrip.framework.apollo.portal.entity.form.NamespaceReleaseModel;
+import com.ctrip.framework.apollo.portal.entity.model.NamespaceReleaseModel;
 import com.ctrip.framework.apollo.portal.entity.vo.ReleaseCompareResult;
 import com.ctrip.framework.apollo.portal.entity.vo.ReleaseVO;
+import com.ctrip.framework.apollo.portal.listener.ConfigPublishEvent;
 import com.ctrip.framework.apollo.portal.service.ReleaseService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,9 +28,11 @@ public class ReleaseController {
 
   @Autowired
   private ReleaseService releaseService;
+  @Autowired
+  private ApplicationEventPublisher publisher;
 
   @PreAuthorize(value = "@permissionValidator.hasReleaseNamespacePermission(#appId, #namespaceName)")
-  @RequestMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/release", method = RequestMethod.POST)
+  @RequestMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/releases", method = RequestMethod.POST)
   public ReleaseDTO createRelease(@PathVariable String appId,
                                   @PathVariable String env, @PathVariable String clusterName,
                                   @PathVariable String namespaceName, @RequestBody NamespaceReleaseModel model) {
@@ -39,7 +43,48 @@ public class ReleaseController {
     model.setClusterName(clusterName);
     model.setNamespaceName(namespaceName);
 
-    return releaseService.createRelease(model);
+    ReleaseDTO createdRelease = releaseService.publish(model);
+
+    ConfigPublishEvent event = ConfigPublishEvent.instance();
+    event.withAppId(appId)
+        .withCluster(clusterName)
+        .withNamespace(namespaceName)
+        .withReleaseId(createdRelease.getId())
+        .setNormalPublishEvent(true)
+        .setEnv(Env.valueOf(env));
+
+    publisher.publishEvent(event);
+
+    return createdRelease;
+  }
+
+  @PreAuthorize(value = "@permissionValidator.hasReleaseNamespacePermission(#appId, #namespaceName)")
+  @RequestMapping(value = "/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName}/branches/{branchName}/releases",
+      method = RequestMethod.POST)
+  public ReleaseDTO createGrayRelease(@PathVariable String appId,
+                                      @PathVariable String env, @PathVariable String clusterName,
+                                      @PathVariable String namespaceName, @PathVariable String branchName,
+                                      @RequestBody NamespaceReleaseModel model) {
+
+    checkModel(model != null);
+    model.setAppId(appId);
+    model.setEnv(env);
+    model.setClusterName(branchName);
+    model.setNamespaceName(namespaceName);
+
+    ReleaseDTO createdRelease = releaseService.publish(model);
+
+    ConfigPublishEvent event = ConfigPublishEvent.instance();
+    event.withAppId(appId)
+        .withCluster(clusterName)
+        .withNamespace(namespaceName)
+        .withReleaseId(createdRelease.getId())
+        .setGrayPublishEvent(true)
+        .setEnv(Env.valueOf(env));
+
+    publisher.publishEvent(event);
+
+    return createdRelease;
   }
 
 
@@ -73,10 +118,10 @@ public class ReleaseController {
 
   @RequestMapping(value = "/envs/{env}/releases/compare")
   public ReleaseCompareResult compareRelease(@PathVariable String env,
-                                             @RequestParam long firstReleaseId,
-                                             @RequestParam long secondReleaseId) {
+                                             @RequestParam long baseReleaseId,
+                                             @RequestParam long toCompareReleaseId) {
 
-    return releaseService.compare(Env.valueOf(env), firstReleaseId, secondReleaseId);
+    return releaseService.compare(Env.valueOf(env), baseReleaseId, toCompareReleaseId);
   }
 
 
@@ -84,5 +129,19 @@ public class ReleaseController {
   public void rollback(@PathVariable String env,
                        @PathVariable long releaseId) {
     releaseService.rollback(Env.valueOf(env), releaseId);
+    ReleaseDTO release = releaseService.findReleaseById(Env.valueOf(env), releaseId);
+    if (release == null) {
+      return;
+    }
+
+    ConfigPublishEvent event = ConfigPublishEvent.instance();
+    event.withAppId(release.getAppId())
+        .withCluster(release.getClusterName())
+        .withNamespace(release.getNamespaceName())
+        .withPreviousReleaseId(releaseId)
+        .setRollbackEvent(true)
+        .setEnv(Env.valueOf(env));
+
+    publisher.publishEvent(event);
   }
 }

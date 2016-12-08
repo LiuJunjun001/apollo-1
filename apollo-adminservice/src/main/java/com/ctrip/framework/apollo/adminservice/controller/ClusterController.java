@@ -1,6 +1,12 @@
 package com.ctrip.framework.apollo.adminservice.controller;
 
-import java.util.List;
+import com.ctrip.framework.apollo.biz.entity.Cluster;
+import com.ctrip.framework.apollo.biz.service.ClusterService;
+import com.ctrip.framework.apollo.common.dto.ClusterDTO;
+import com.ctrip.framework.apollo.common.exception.BadRequestException;
+import com.ctrip.framework.apollo.common.exception.NotFoundException;
+import com.ctrip.framework.apollo.common.utils.BeanUtils;
+import com.ctrip.framework.apollo.common.utils.InputValidator;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,13 +16,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ctrip.framework.apollo.biz.entity.Cluster;
-import com.ctrip.framework.apollo.biz.service.ClusterService;
-import com.ctrip.framework.apollo.common.utils.BeanUtils;
-import com.ctrip.framework.apollo.common.utils.InputValidator;
-import com.ctrip.framework.apollo.common.dto.ClusterDTO;
-import com.ctrip.framework.apollo.common.exception.BadRequestException;
-import com.ctrip.framework.apollo.common.exception.NotFoundException;
+import java.util.List;
 
 @RestController
 public class ClusterController {
@@ -25,16 +25,24 @@ public class ClusterController {
   private ClusterService clusterService;
 
   @RequestMapping(path = "/apps/{appId}/clusters", method = RequestMethod.POST)
-  public ClusterDTO create(@PathVariable("appId") String appId, @RequestBody ClusterDTO dto) {
+  public ClusterDTO create(@PathVariable("appId") String appId,
+                           @RequestParam(value = "autoCreatePrivateNamespace", defaultValue = "true") boolean autoCreatePrivateNamespace,
+                           @RequestBody ClusterDTO dto) {
     if (!InputValidator.isValidClusterNamespace(dto.getName())) {
       throw new BadRequestException(String.format("Cluster格式错误: %s", InputValidator.INVALID_CLUSTER_NAMESPACE_MESSAGE));
     }
+
     Cluster entity = BeanUtils.transfrom(Cluster.class, dto);
     Cluster managedEntity = clusterService.findOne(appId, entity.getName());
     if (managedEntity != null) {
       throw new BadRequestException("cluster already exist.");
     }
-    entity = clusterService.save(entity);
+
+    if (autoCreatePrivateNamespace) {
+      entity = clusterService.saveWithCreatePrivateNamespace(entity);
+    } else {
+      entity = clusterService.saveWithoutCreatePrivateNamespace(entity);
+    }
 
     dto = BeanUtils.transfrom(ClusterDTO.class, entity);
     return dto;
@@ -52,7 +60,7 @@ public class ClusterController {
 
   @RequestMapping("/apps/{appId}/clusters")
   public List<ClusterDTO> find(@PathVariable("appId") String appId) {
-    List<Cluster> clusters = clusterService.findClusters(appId);
+    List<Cluster> clusters = clusterService.findParentClusters(appId);
     return BeanUtils.batchTransform(ClusterDTO.class, clusters);
   }
 

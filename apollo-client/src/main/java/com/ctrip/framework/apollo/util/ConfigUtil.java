@@ -1,6 +1,5 @@
 package com.ctrip.framework.apollo.util;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 
 import com.ctrip.framework.apollo.core.ConfigConsts;
@@ -9,7 +8,6 @@ import com.ctrip.framework.apollo.core.enums.Env;
 import com.ctrip.framework.apollo.core.enums.EnvUtils;
 import com.ctrip.framework.apollo.exceptions.ApolloConfigException;
 import com.ctrip.framework.foundation.Foundation;
-import com.dianping.cat.Cat;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 @Named(type = ConfigUtil.class)
 public class ConfigUtil {
   private static final Logger logger = LoggerFactory.getLogger(ConfigUtil.class);
+  private static final String TOOLING_CLUSTER = "tooling";
   private int refreshInterval = 5;
   private TimeUnit refreshIntervalTimeUnit = TimeUnit.MINUTES;
   private int connectTimeout = 1000; //1 second
@@ -48,7 +47,7 @@ public class ConfigUtil {
     String appId = Foundation.app().getAppId();
     if (Strings.isNullOrEmpty(appId)) {
       appId = ConfigConsts.NO_APPID_PLACEHOLDER;
-      logger.warn("app.id is not set, apollo will only load public namespace configurations!");
+      logger.warn("app.id is not set, please make sure it is set in classpath:/META-INF/app.properties, now apollo will only load public namespace configurations!");
     }
     return appId;
   }
@@ -66,6 +65,19 @@ public class ConfigUtil {
     //Load data center from system property
     cluster = System.getProperty(ConfigConsts.APOLLO_CLUSTER_KEY);
 
+    String env = Foundation.server().getEnvType();
+    //LPT and DEV will be treated as a cluster(lower case)
+    if (Strings.isNullOrEmpty(cluster) &&
+        (Env.DEV.name().equalsIgnoreCase(env) || Env.LPT.name().equalsIgnoreCase(env))
+        ) {
+      cluster = env.toLowerCase();
+    }
+
+    //Use TOOLING cluster if tooling=true in server.properties
+    if (Strings.isNullOrEmpty(cluster) && isToolingZone()) {
+      cluster = TOOLING_CLUSTER;
+    }
+
     //Use data center as cluster
     if (Strings.isNullOrEmpty(cluster)) {
       cluster = getDataCenter();
@@ -75,6 +87,11 @@ public class ConfigUtil {
     if (Strings.isNullOrEmpty(cluster)) {
       cluster = ConfigConsts.CLUSTER_NAME_DEFAULT;
     }
+  }
+
+  private boolean isToolingZone() {
+    //do not use the new isTooling method since it might not be available in the client side
+    return "true".equalsIgnoreCase(Foundation.server().getProperty("tooling", "false").trim());
   }
 
   /**
@@ -90,11 +107,17 @@ public class ConfigUtil {
    * Get the current environment.
    *
    * @return the env
-   * @throws IllegalStateException if env is set
+   * @throws ApolloConfigException if env is set
    */
   public Env getApolloEnv() {
     Env env = EnvUtils.transformEnv(Foundation.server().getEnvType());
-    Preconditions.checkState(env != null, "env is not set");
+    if (env == null) {
+      String path = isOSWindows() ? "C:\\opt\\settings\\server.properties" :
+          "/opt/settings/server.properties";
+      String message = String.format("env is not set, please make sure it is set in %s!", path);
+      logger.error(message);
+      throw new ApolloConfigException(message);
+    }
     return env;
   }
 

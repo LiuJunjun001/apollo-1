@@ -9,21 +9,23 @@ import com.ctrip.framework.apollo.common.utils.BeanUtils;
 import com.ctrip.framework.apollo.common.utils.ExceptionUtils;
 import com.ctrip.framework.apollo.core.enums.Env;
 import com.ctrip.framework.apollo.portal.api.AdminServiceAPI;
-import com.ctrip.framework.apollo.portal.auth.UserInfoHolder;
 import com.ctrip.framework.apollo.portal.constant.CatEventType;
 import com.ctrip.framework.apollo.portal.entity.vo.EnvClusterInfo;
 import com.ctrip.framework.apollo.portal.repository.AppRepository;
-import com.dianping.cat.Cat;
+import com.ctrip.framework.apollo.portal.spi.UserInfoHolder;
+import com.ctrip.framework.apollo.tracer.Tracer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class AppService {
@@ -52,6 +54,14 @@ public class AppService {
       return Collections.emptyList();
     }
     return Lists.newArrayList((apps));
+  }
+
+  public List<App> findByAppIds(Set<String> appIds){
+    return appRepository.findByAppIdIn(appIds);
+  }
+
+  public List<App> findByOwnerName(String ownerName, Pageable page){
+    return appRepository.findByOwnerName(ownerName, page);
   }
 
   public App load(String appId) {
@@ -97,7 +107,7 @@ public class AppService {
       //role
       roleInitializationService.initAppRoles(createdApp);
 
-      Cat.logEvent(CatEventType.CREATE_APP, appId);
+      Tracer.logEvent(CatEventType.CREATE_APP, appId);
       return createdApp;
     }
   }

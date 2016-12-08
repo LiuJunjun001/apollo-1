@@ -1,17 +1,17 @@
 package com.ctrip.framework.apollo.biz.service;
 
-import java.util.Date;
-import java.util.List;
+import com.ctrip.framework.apollo.biz.AbstractIntegrationTest;
+import com.ctrip.framework.apollo.biz.entity.Cluster;
+import com.ctrip.framework.apollo.biz.entity.Namespace;
+import com.ctrip.framework.apollo.biz.entity.Privilege;
+import com.ctrip.framework.apollo.common.entity.App;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.ctrip.framework.apollo.biz.AbstractIntegrationTest;
-import com.ctrip.framework.apollo.common.entity.App;
-import com.ctrip.framework.apollo.biz.entity.Cluster;
-import com.ctrip.framework.apollo.biz.entity.Namespace;
-import com.ctrip.framework.apollo.biz.entity.Privilege;
+import java.util.Date;
+import java.util.List;
 
 public class PrivilegeServiceTest extends AbstractIntegrationTest {
 
@@ -40,7 +40,7 @@ public class PrivilegeServiceTest extends AbstractIntegrationTest {
     app.setDataChangeCreatedTime(new Date());
     App newApp = adminService.createNewApp(app);
 
-    List<Cluster> clusters = clusterService.findClusters(newApp.getAppId());
+    List<Cluster> clusters = clusterService.findParentClusters(newApp.getAppId());
     List<Namespace> namespaces =
         namespaceService.findNamespaces(newApp.getAppId(), clusters.get(0).getName());
     Namespace namespace = namespaces.get(0);
@@ -70,7 +70,7 @@ public class PrivilegeServiceTest extends AbstractIntegrationTest {
     app.setDataChangeLastModifiedBy(owner);
     app.setDataChangeCreatedTime(new Date());
     App newApp = adminService.createNewApp(app);
-    List<Cluster> clusters = clusterService.findClusters(newApp.getAppId());
+    List<Cluster> clusters = clusterService.findParentClusters(newApp.getAppId());
     List<Namespace> namespaces =
         namespaceService.findNamespaces(newApp.getAppId(), clusters.get(0).getName());
     Namespace namespace = namespaces.get(0);
